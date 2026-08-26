@@ -64,6 +64,7 @@ export const DEFAULT_COLUMNS = [
  *             level: "epic" | "story" | "task" | "subtask",
  *             epicId?: string | null,
  *             group?: string | null,
+ *             allowWork?: boolean,
  *             model?: string | null,
  *             activity: Array<{ ts: number, who: string, text: string, kind?: string }> }} BoardTask
  *
@@ -95,6 +96,10 @@ export const DEFAULT_COLUMNS = [
  *         re-stamped on assignment (assignee's group). When unset, derived
  *         live from the assignee's cwd basename. Drives same-group-only
  *         visibility for agents; the human operator sees every group.
+ * allowWork — operator toggle (default true). When false the task is hidden
+ *         from worker agents (board listings + get-by-id) and cannot be
+ *         assigned/dispatched. The human operator and manager agents still
+ *         see it so they can re-enable. Local-only — never pushed to Jira.
  * model — optional per-task model override (e.g.
  *         "openrouter/deepseek/deepseek-v4-pro"). Applied at dispatch: a
  *         worker spawned for the task is started with --model, and an
@@ -223,6 +228,9 @@ export function loadBoard() {
         if (!t.location) t.location = "board";
         if (!t.level) t.level = t.parentId || t.parentKey ? "subtask" : "task";
         if (t.epicId === undefined) t.epicId = null;
+        // allowWork backfill: tasks saved before the toggle existed default
+        // to "allow work" (visible + assignable) — lossless for old boards.
+        if (t.allowWork === undefined) t.allowWork = true;
         // group is left as-is when stamped; unset tasks derive it live from
         // their assignee (see taskGroup), so no backfill needed.
       }
@@ -378,16 +386,28 @@ export function boardState(actorId, opts = {}) {
   // Ungrouped tasks (no stamped group and no derivable assignee group) are
   // shown to everyone so historical data isn't hidden.
   const groupFilter = opts.group;
+  // Whether this actor is privileged to see hidden (allowWork:false) tasks and
+  // all groups: the human operator, an unauthenticated caller, or a manager
+  // agent (injected predicate). Used for both the group scoping below and the
+  // "Allow work" gate further down.
+  const privileged = !actorId || actorId === HUMAN_AGENT_ID || (managerAgentTest && managerAgentTest(actorId));
   let tasks;
   if (groupFilter === "all") {
     tasks = board.tasks;
   } else if (groupFilter) {
     tasks = board.tasks.filter((t) => taskGroup(t) === groupFilter);
   } else {
-    const seesAll = !actorId || actorId === HUMAN_AGENT_ID || (managerAgentTest && managerAgentTest(actorId));
-    tasks = seesAll
+    tasks = privileged
       ? board.tasks
       : board.tasks.filter((t) => canAccessGroup(actorId, t));
+  }
+  // "Allow work" gate (task e6ac4fe0): tasks with allowWork === false are
+  // hidden from worker agents (non-human, non-manager) across EVERY listing
+  // path — including group:'all' and the get-by-id lookup board_get_task does
+  // — so a hidden task can't be discovered by id either. The human operator
+  // and manager agents still see them (so they can re-enable the toggle).
+  if (!privileged) {
+    tasks = tasks.filter((t) => t.allowWork !== false);
   }
   // Location/archive filter (task 6586b9ca) — single source of truth for the
   // board_list_tasks default: archived tasks are hidden unless explicitly

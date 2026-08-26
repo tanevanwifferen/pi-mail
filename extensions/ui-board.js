@@ -231,6 +231,11 @@ function taskCard(t, board) {
     mb.title = t.model;
     meta.appendChild(mb);
   }
+  if (t.allowWork === false) {
+    const hb = el("span", "badge hidden", "🚫 hidden");
+    hb.title = "\"Allow work\" is off — hidden from worker agents and cannot be assigned";
+    meta.appendChild(hb);
+  }
   const g = taskGroup(t);
   if (g && g !== "(no project)") meta.appendChild(el("span", "badge sub", "⟨" + g + "⟩"));
 

@@ -11,7 +11,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import type { MailClient } from "./mail-client.js";
 export interface BoardColumn { id: string; name: string; jiraStatus: string | null; instructions: string; }
-export interface BoardTask { id: string; key: string | null; origin: "jira" | "local"; summary: string; description: string; url: string | null; jiraStatus: string | null; columnId: string; assignee: string | null; priority: string | null; issueType: string | null; updatedAt: number; parentId: string | null; parentKey: string | null; pinned?: boolean; flagged: { by: string; reason: string; ts: number } | null; knownCommentIds?: string[]; progressSince?: number; lastProgressTs?: number; lastNudgeTs?: number; location: "board" | "backlog" | "archive"; level: "epic" | "story" | "task" | "subtask"; epicId?: string | null; group?: string | null; model?: string | null; activity: Array<{ ts: number; who: string; text: string; kind?: string }>; }
+export interface BoardTask { id: string; key: string | null; origin: "jira" | "local"; summary: string; description: string; url: string | null; jiraStatus: string | null; columnId: string; assignee: string | null; priority: string | null; issueType: string | null; updatedAt: number; parentId: string | null; parentKey: string | null; pinned?: boolean; flagged: { by: string; reason: string; ts: number } | null; knownCommentIds?: string[]; progressSince?: number; lastProgressTs?: number; lastNudgeTs?: number; location: "board" | "backlog" | "archive"; level: "epic" | "story" | "task" | "subtask"; epicId?: string | null; group?: string | null; allowWork?: boolean; model?: string | null; activity: Array<{ ts: number; who: string; text: string; kind?: string }>; }
 interface BoardStateResp { type: string; message?: string; columns: BoardColumn[]; tasks: BoardTask[]; jiraConfigured: boolean; jiraEnabled?: boolean; lastSync: number; syncError: string | null; myGroup: string | null; group?: string | null; }
 export interface BoardToolCtx { client: MailClient | null; connected: boolean; agentName: string; notConnected: { content: { type: "text"; text: string }[] }; }
 export function errText(err: unknown) { return { content: [{ type: "text" as const, text: `Error: ${err instanceof Error ? err.message : String(err)}` }] }; }
@@ -160,6 +160,7 @@ export function registerBoardTools(pi: ExtensionAPI, ctx: BoardToolCtx): void {
       group: Type.Optional(Type.String({ description: "Project group for the task (omit for ungrouped/current behavior)" })),
       priority: Type.Optional(Type.String({ description: "Priority: 'high', 'medium', or 'low' (default: none)" })),
       model: Type.Optional(Type.String({ description: "Per-task model override, e.g. 'openrouter/deepseek/deepseek-v4-pro' (omit for the worker's default). See mail models list." })),
+      allowWork: Type.Optional(Type.Boolean({ description: "'Allow work' toggle (default true). Pass false to create the task hidden from worker agents." })),
     }),
     async execute(_id, params, _signal, _onUpdate, _ctx) {
       if (!ctx.connected || !ctx.client) return ctx.notConnected;
@@ -178,6 +179,7 @@ export function registerBoardTools(pi: ExtensionAPI, ctx: BoardToolCtx): void {
             group: params.group,
             priority: params.priority,
             model: params.model,
+            allowWork: params.allowWork,
           },
           30_000
         );
@@ -284,12 +286,13 @@ export function registerBoardTools(pi: ExtensionAPI, ctx: BoardToolCtx): void {
       group: Type.Optional(Type.String({ description: "Project group for the task (empty string to clear, omit to leave unchanged). Use favorites/mail_list_projects basenames as valid group names." })),
       priority: Type.Optional(Type.String({ description: "Priority: 'high', 'medium', 'low', or empty string to clear (omit to leave unchanged)" })),
       model: Type.Optional(Type.String({ description: "Per-task model override, e.g. 'openrouter/deepseek/deepseek-v4-pro' (empty string to clear, omit to leave unchanged)" })),
+      allowWork: Type.Optional(Type.Boolean({ description: "'Allow work' toggle: false hides the task from worker agents and blocks assignment; true (default) makes it visible/assignable" })),
     }),
     async execute(_id, params, _signal, _onUpdate, _ctx) {
       if (!ctx.connected || !ctx.client) return ctx.notConnected;
       try {
         const resp = await ctx.client.request<{ type: string; message?: string; task?: BoardTask }>(
-          { type: "board_update", taskId: params.taskId, summary: params.summary, description: params.description, group: params.group, priority: params.priority, model: params.model },
+          { type: "board_update", taskId: params.taskId, summary: params.summary, description: params.description, group: params.group, priority: params.priority, model: params.model, allowWork: params.allowWork },
           30_000
         );
         return boardOpResult(resp, `Updated ${resp.task?.key ?? params.taskId}`);

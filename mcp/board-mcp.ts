@@ -270,10 +270,11 @@ export function createBoardMcpServer(backend: BoardBackend = httpBackend): McpSe
       description: z.string().optional().describe("New description"),
       group: z.string().optional().describe("Project group for the task (empty string to clear, omit to leave unchanged)"),
       model: z.string().optional().describe("Per-task model override (empty string to clear, omit to leave unchanged)"),
+      allowWork: z.boolean().optional().describe("'Allow work' toggle: false hides the task from worker agents and blocks assignment; true (default) makes it visible/assignable"),
     },
-    async ({ taskId, summary, description, group, model }) => {
+    async ({ taskId, summary, description, group, model, allowWork }) => {
       try {
-        const resp = await http.updateTask(taskId, { summary, description, group, model });
+        const resp = await http.updateTask(taskId, { summary, description, group, model, allowWork });
         return ok(renderOpResult(resp, `Updated ${taskId}`));
       } catch (e) {
         return toolError(e);

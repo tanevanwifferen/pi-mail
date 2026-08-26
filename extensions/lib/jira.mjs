@@ -387,6 +387,7 @@ export async function syncBoard(reason = "interval") {
           location: "board",
           level: levelFromIssueType(f.issuetype?.name),
           epicId: null,
+          allowWork: true,
           activity: [{ ts: Date.now(), who: "jira", text: `imported from Jira (status: ${status})` }],
         };
         board.tasks.push(task);

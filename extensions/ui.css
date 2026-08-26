@@ -243,6 +243,7 @@
   .badge.jira { color: var(--accent2); border-color: var(--accent); }
   .badge.custom { color: var(--warning); border-color: var(--warning); }
   .badge.flag { color: var(--error); border-color: var(--error); }
+  .badge.hidden { color: var(--warning); border-color: var(--warning); }
   .badge.pri-high { color: #fff; background: var(--error); border-color: var(--error); }
   .badge.pri-medium { color: #fff; background: var(--warning); border-color: var(--warning); }
   .badge.pri-low { color: var(--dim); border-color: var(--dim); }

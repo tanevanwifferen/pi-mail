@@ -32,7 +32,7 @@ import {
  * the parent is a Jira issue (or `inJira` is set), a real Jira issue is
  * created too and kept in sync (pinned, so it survives JQL filtering).
  */
-export async function boardCreate(actorId, { summary, description, column, parent, inJira, level, epicId, backlog, group, priority, model } = {}) {
+export async function boardCreate(actorId, { summary, description, column, parent, inJira, level, epicId, backlog, group, priority, model, allowWork } = {}) {
   const s = String(summary ?? "").trim();
   if (!s) return { error: "Summary is required" };
   const parentTask = parent ? findBoardTask(parent) : null;
@@ -81,6 +81,9 @@ export async function boardCreate(actorId, { summary, description, column, paren
     // Per-task model override (e.g. "openrouter/deepseek/deepseek-v4-pro").
     // Empty/unset means the worker's default model. Applied at dispatch.
     model: model ? String(model).trim() : null,
+    // "Allow work" toggle (task e6ac4fe0): when false the task is hidden
+    // from worker agents and cannot be assigned. Default true (visible).
+    allowWork: typeof allowWork === "boolean" ? allowWork : true,
     // Stamp the owning group: subtasks inherit their parent's group, otherwise
     // the creator's project group (human-created tasks get null here and are
     // (re)stamped when assigned to an agent).
@@ -128,7 +131,7 @@ export async function boardCreate(actorId, { summary, description, column, paren
   return { ok: true, task };
 }
 
-export async function boardUpdate(actorId, taskSpec, { summary, description, group, priority, model } = {}) {
+export async function boardUpdate(actorId, taskSpec, { summary, description, group, priority, model, allowWork } = {}) {
   const task = findBoardTask(taskSpec);
   if (!task) return { error: `Task '${taskSpec}' not found` };
   const actor = agentDisplayName(actorId);
@@ -175,7 +178,15 @@ export async function boardUpdate(actorId, taskSpec, { summary, description, gro
       changes.push("model (cleared)");
     }
   }
-  if (!changes.length) return { error: "Nothing to update (pass summary, description, priority, group, and/or model)" };
+  // allowWork: boolean toggle (task e6ac4fe0). true = visible; false = hidden
+  // from worker agents. Local-only — never pushed to Jira.
+  if (typeof allowWork === "boolean") {
+    if (task.allowWork !== allowWork) {
+      task.allowWork = allowWork;
+      changes.push(allowWork ? "allow work → on" : "allow work → off");
+    }
+  }
+  if (!changes.length) return { error: "Nothing to update (pass summary, description, priority, group, model, and/or allowWork)" };
   let warning;
   if (task.origin === "jira" && jiraPushOk()) {
     try {

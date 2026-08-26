@@ -212,6 +212,19 @@ function renderTaskModal() {
   actions.appendChild(modelSelect(t.model || "", (model) => {
     boardPost("/api/board/update", { taskId: t.id, model }, "Model " + (model || "cleared"));
   }));
+  // "Allow work" toggle (task e6ac4fe0) — unchecked hides the task from
+  // worker agents and blocks assignment. The operator sees hidden tasks and
+  // can re-enable here.
+  const awWrap = el("span", "checkbox");
+  const awCb = el("input"); awCb.type = "checkbox"; awCb.id = "allowWork"; awCb.checked = t.allowWork !== false;
+  awCb.title = "When unchecked the task is hidden from worker agents and cannot be assigned";
+  awCb.addEventListener("change", () => {
+    boardPost("/api/board/update", { taskId: t.id, allowWork: awCb.checked },
+      awCb.checked ? "Allow work on" : "Allow work off — hidden from agents");
+  });
+  const awLbl = el("label", null, "Allow work"); awLbl.setAttribute("for", "allowWork"); awLbl.style.margin = "0";
+  awWrap.appendChild(awCb); awWrap.appendChild(awLbl);
+  actions.appendChild(awWrap);
   // Assign select
   const as = el("select");
   const optNone = el("option"); optNone.value = ""; optNone.textContent = "→ assign…"; as.appendChild(optNone);

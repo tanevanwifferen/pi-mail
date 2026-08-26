@@ -112,6 +112,8 @@ export function nudgeIdleTasks() {
   const now = Date.now();
   for (const task of board.tasks) {
     if (!task.assignee) continue;
+    // "Allow work" off → the task is hidden from workers; don't nag them.
+    if (task.allowWork === false) continue;
     const col = board.columns.find((c) => c.id === task.columnId);
     // "In progress" = a column mapped to a Jira status whose name suggests
     // active work, OR any non-board-only column between To Do and Done. We

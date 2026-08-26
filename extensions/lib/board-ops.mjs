@@ -159,6 +159,13 @@ export async function boardAssign(actorId, taskSpec, assignee, newSession) {
     schedulePersistBoard();
     return { ok: true, task };
   }
+  // "Allow work" gate (task e6ac4fe0): a hidden task cannot be assigned/
+  // dispatched to a worker — whoever is doing the assigning (operator or a
+  // manager). Unassigning above stays allowed so the operator can clear a
+  // hidden task's assignee. Re-enable "Allow work" before assigning.
+  if (task.allowWork === false) {
+    return { error: `Task '${taskSpec}' has "Allow work" off — re-enable it before assigning` };
+  }
   // Resolve to a canonical live-agent name when possible (accepts id prefixes).
   const targetId = resolveTarget(name);
   // An agent can only assign within its own group; the human and managers can assign across.

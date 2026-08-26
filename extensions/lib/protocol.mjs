@@ -243,6 +243,7 @@ export function handleMessage(agentId, msg, socket) {
         group: msg.group,
         priority: msg.priority,
         model: msg.model,
+        allowWork: msg.allowWork,
       })
         .then((r) => reply(r.error ? { type: "error", message: r.error } : { type: "ok", task: r.task }))
         .catch((e) => reply({ type: "error", message: e?.message ?? String(e) }));
@@ -250,7 +251,7 @@ export function handleMessage(agentId, msg, socket) {
     }
 
     case "board_update": {
-      boardUpdate(agentId, msg.taskId, { summary: msg.summary, description: msg.description, group: msg.group, priority: msg.priority, model: msg.model })
+      boardUpdate(agentId, msg.taskId, { summary: msg.summary, description: msg.description, group: msg.group, priority: msg.priority, model: msg.model, allowWork: msg.allowWork })
         .then((r) => reply(r.error ? { type: "error", message: r.error } : { type: "ok", task: r.task, warning: r.warning }))
         .catch((e) => reply({ type: "error", message: e?.message ?? String(e) }));
       break;
